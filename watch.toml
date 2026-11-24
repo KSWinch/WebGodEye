@@ -1,0 +1,81 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  WebGodEye — what to watch.  This is the only file you need to edit.
+#  Restart the app (close + run.bat) after changing it.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# The product you're hunting. Swap this block to watch something else.
+[target]
+name = "Mykonos Inferno"
+# A product title must contain ALL of these (case-insensitive) to count as a match.
+# ("inferno" alone would also match other brands' Inferno perfumes.)
+keywords = ["mykonos", "inferno"]
+# Only alert when one of these sizes is available (matched against the size/variant name,
+# spaces ignored). Leave empty [] to alert on any size. Other sizes still show on the dashboard.
+alert_sizes = ["100ml"]
+# Picture on the dashboard: a local file or an image URL.
+# Make a transparent one from any product photo:  python -m godeye --make-image <image url>
+image = "assets/target.png"
+
+[settings]
+port = 8765
+default_interval_minutes = 10   # per-source "interval_minutes" overrides this
+
+[notify]
+windows = true                  # desktop popup + sound
+ntfy_topic = "godeye-04dc9bfac266"   # auto-generated on first run; install the ntfy app and subscribe to it
+discord_webhook = "https://discord.com/api/webhooks/1574897595577401577/49ZKCudKGh1E1uLvZlspTl9TCPJl1r-6j2LyUmPcGSPNLLGTvRyEPzOQE1v0XCsEBfPf"
+discord_ping_role = "1574901238779093184"   # role to @mention on alerts ("" = no ping)
+
+# ── Sources ──────────────────────────────────────────────────────────────────
+# Types available:
+#   shopify_product  url = product page             -> stock for each size
+#                    sizes = ["50ml"]                (optional, overrides target.alert_sizes for this source)
+#   shopify_search   store = https://shop.com        -> any product whose title matches target.keywords
+#                    query = "..."                   (optional, defaults to keywords joined by spaces)
+#                    keywords = ["..."]              (optional, overrides target.keywords for this store)
+#   page_text        url = any page, text = "Sold out", alert_when = "absent" | "present"
+#   link             url = any page                  -> just a card with a link to check by hand
+# Any source can set:  interval_minutes = N,  enabled = false
+
+[[source]]
+name = "FragranceBuy (CA) - Inferno page"
+type = "shopify_product"
+url = "https://fragrancebuy.ca/products/mykonosinferno-man"
+
+[[source]]
+name = "Official Mykonos - Inferno page"
+type = "shopify_product"
+url = "https://officialmykonos.com/products/mykonos-inferno-extrait-de-parfum-100ml"
+
+[[source]]
+name = "Beautyhouse (US) - Inferno page"
+type = "shopify_product"
+url = "https://beautyhouse.com/products/mykonos-inferno-extrait-de-parfum-for-everyone"
+
+[[source]]
+# Catches the product being re-listed under a new URL (e.g. a new size or batch).
+name = "Official Mykonos - store search"
+type = "shopify_search"
+store = "https://officialmykonos.com"
+query = "inferno"
+interval_minutes = 30
+
+[[source]]
+name = "FragranceBuy - store search"
+type = "shopify_search"
+store = "https://fragrancebuy.ca"
+interval_minutes = 30
+
+
+[[source]]
+# Not scraped (Instagram blocks automated viewing) — just a quick link on the dashboard.
+name = "Instagram @officialmykonos"
+type = "link"
+url = "https://www.instagram.com/officialmykonos/"
+note = "Check stories/posts for restock news"
+
+[[source]]
+name = "TikTok @mykonosofficial"
+type = "link"
+url = "https://www.tiktok.com/@mykonosofficial"
+note = "Tip: turn on post notifications for this account in the TikTok app"
