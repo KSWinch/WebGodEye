@@ -1,4 +1,5 @@
 """Loads watch.toml and normalises it into plain dicts the rest of the app uses."""
+from datetime import datetime
 import re
 import secrets
 import tomllib
@@ -48,6 +49,14 @@ def load() -> dict:
     settings = cfg.setdefault("settings", {})
     settings.setdefault("port", 8765)
     settings.setdefault("default_interval_minutes", 10)
+    settings.setdefault("phone_access", False)
+    settings.setdefault("alert_after_failing_hours", 3)   # 0 = never warn about a failing source
+    settings.setdefault("daily_summary", "09:00")          # "" = off
+    if settings["daily_summary"]:
+        try:
+            settings["daily_summary"] = datetime.strptime(str(settings["daily_summary"]), "%H:%M").strftime("%H:%M")
+        except ValueError:
+            raise ConfigError(f'daily_summary must look like "09:00", got {settings["daily_summary"]!r}')
 
     _ensure_ntfy_topic(cfg)
 

@@ -19,6 +19,9 @@ image = "assets/target.png"
 [settings]
 port = 8765
 default_interval_minutes = 10   # per-source "interval_minutes" overrides this
+phone_access = true             # also serve the dashboard on your home Wi-Fi (address shown at the bottom of the page)
+alert_after_failing_hours = 3   # warn once if a source keeps failing this long (0 = never)
+daily_summary = "09:00"         # quiet "still watching" message each day (no ping, no sound); "" = off
 
 [notify]
 windows = true                  # desktop popup + sound

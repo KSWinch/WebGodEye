@@ -15,6 +15,7 @@ import importlib
 import pkgutil
 import re
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
 
 REGISTRY: dict[str, "Checker"] = {}
 
@@ -26,6 +27,7 @@ class Item:
     hot: bool              # True = the thing we're waiting for (available / matching post)
     url: str = ""
     note: str = ""         # short extra text, e.g. "Sold out"
+    buy_url: str = ""      # straight-to-checkout link, when the store supports one
 
 
 @dataclass
@@ -74,6 +76,7 @@ def size_watched(label: str, source: dict, target: dict) -> bool:
 def shopify_variant_items(page: str, product: dict, source: dict, target: dict) -> list[Item]:
     """Turn a Shopify product (.js JSON) into one Item per variant; hot = available AND a watched size."""
     items = []
+    root = "{0.scheme}://{0.netloc}".format(urlsplit(page))
     for v in product.get("variants", []):
         vt = v.get("title") or "Default Title"
         label = product.get("title", "") if vt == "Default Title" else vt
@@ -81,7 +84,9 @@ def shopify_variant_items(page: str, product: dict, source: dict, target: dict) 
         avail = bool(v.get("available"))
         note = ("In stock" if avail else "Sold out") + ("" if watched else " · not watched")
         items.append(Item(id=str(v["id"]), title=label, hot=avail and watched,
-                          url=f"{page}?variant={v['id']}", note=note))
+                          url=f"{page}?variant={v['id']}", note=note,
+                          # Shopify cart permalink: puts 1 of this size in the cart and opens checkout.
+                          buy_url=f"{root}/cart/{v['id']}:1"))
     return items
 
 

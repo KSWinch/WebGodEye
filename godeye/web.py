@@ -1,5 +1,6 @@
-"""Tiny dashboard server (standard library only), bound to localhost."""
+"""Tiny dashboard server (standard library only). Localhost only unless phone_access is on."""
 import json
+import socket
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -9,13 +10,25 @@ from .config import ROOT
 INDEX = Path(__file__).parent / "static" / "index.html"
 
 
+def lan_ip() -> str:
+    """This PC's address on the home network (no traffic is sent; UDP connect just picks a route)."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))
+            return s.getsockname()[0]
+    except OSError:
+        return ""
+
+
 def make_server(cfg: dict, state, scheduler) -> ThreadingHTTPServer:
     image = cfg["target"].get("image", "")
     image_file = None if image.startswith(("http://", "https://", "//")) or not image else ROOT / image
     image_url = "/target-image" if image_file else image
+    port, phone = cfg["settings"]["port"], cfg["settings"]["phone_access"]
 
-    def status_payload() -> dict:
-        snap = state.snapshot()
+    def status_payload(local: bool) -> dict:
+        full = state.snapshot()
+        snap = full["sources"]
         rows = []
         for src in cfg["sources"]:
             s = snap.get(src["id"], {})
@@ -30,9 +43,13 @@ def make_server(cfg: dict, state, scheduler) -> ThreadingHTTPServer:
                 "checking": scheduler.running == src["id"],
             })
         now = time.time()
-        return {"target": cfg["target"]["name"], "image": image_url, "now": now, "sources": rows,
+        ip = lan_ip() if phone else ""
+        return {"phone_url": f"http://{ip}:{port}" if ip else "",
+                "target": cfg["target"]["name"], "image": image_url, "now": now, "sources": rows,
                 "heartbeat_age": now - scheduler.heartbeat if scheduler.heartbeat else None,
-                "ntfy_topic": cfg.get("notify", {}).get("ntfy_topic", "")}
+                "history": full["history"][::-1][:25], "watching_since": full["since"],
+                # The ntfy topic works like a password for your alerts, so only show it on the PC itself.
+                "ntfy_topic": cfg.get("notify", {}).get("ntfy_topic", "") if local else ""}
 
     class Handler(BaseHTTPRequestHandler):
         def _send(self, code: int, body: bytes, ctype: str):
@@ -50,7 +67,7 @@ def make_server(cfg: dict, state, scheduler) -> ThreadingHTTPServer:
                     image_file.suffix.lower(), "image/jpeg")
                 self._send(200, image_file.read_bytes(), ctype)
             elif self.path == "/api/status":
-                self._send(200, json.dumps(status_payload()).encode(), "application/json")
+                self._send(200, json.dumps(status_payload(self.client_address[0] == "127.0.0.1")).encode(), "application/json")
             else:
                 self._send(404, b"not found", "text/plain")
 
@@ -64,4 +81,4 @@ def make_server(cfg: dict, state, scheduler) -> ThreadingHTTPServer:
         def log_message(self, *args):  # keep the log quiet
             pass
 
-    return ThreadingHTTPServer(("127.0.0.1", cfg["settings"]["port"]), Handler)
+    return ThreadingHTTPServer(("0.0.0.0" if phone else "127.0.0.1", port), Handler)

@@ -26,45 +26,65 @@ def _post_json(url: str, payload: dict):
     urllib.request.urlopen(req, timeout=15).read()
 
 
-def windows_toast(title: str, message: str, url: str):
-    launch = f' activationType="protocol" launch="{escape(url, {chr(34): "&quot;"})}"' if url else ""
-    xml = (f'<toast{launch} scenario="reminder"><visual><binding template="ToastGeneric">'
+# How loud each kind of alert is. restock = the real thing; warning = something needs a look;
+# info = routine (daily "still watching" message: no desktop popup, no sound on the phone, no role ping).
+KINDS = {
+    "restock": {"windows": True, "ntfy_priority": 5, "tag": "rotating_light", "ping": True},
+    "warning": {"windows": True, "ntfy_priority": 4, "tag": "warning", "ping": False},
+    "info":    {"windows": False, "ntfy_priority": 2, "tag": "eyes", "ping": False},
+}
+
+
+def _attr(text: str) -> str:
+    return escape(text, {'"': "&quot;"})
+
+
+def windows_toast(title: str, message: str, links: list[tuple[str, str]], loud: bool):
+    url = links[0][1] if links else ""
+    launch = f' activationType="protocol" launch="{_attr(url)}"' if url else ""
+    buttons = "".join(f'<action content="{_attr(label)}" activationType="protocol" arguments="{_attr(u)}"/>'
+                      for label, u in links[:4])
+    xml = (f'<toast{launch}{" scenario=\"reminder\"" if loud else ""}><visual><binding template="ToastGeneric">'
            f"<text>{escape(title)}</text><text>{escape(message)}</text></binding></visual>"
-           f'<actions><action content="Open" activationType="protocol" arguments="{escape(url or "about:blank", {chr(34): "&quot;"})}"/>'
-           f'<action content="Dismiss" activationType="system" arguments="dismiss"/></actions>'
-           f'<audio src="ms-winsoundevent:Notification.Reminder"/></toast>')
+           f'<actions>{buttons}<action content="Dismiss" activationType="system" arguments="dismiss"/></actions>'
+           f'<audio src="ms-winsoundevent:Notification.{"Reminder" if loud else "Default"}"/></toast>')
     env = dict(os.environ, GODEYE_TOAST=xml, GODEYE_APPID=_PS_APP_ID)
     subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", _PS_SCRIPT],
                    env=env, timeout=30, check=True, capture_output=True,
                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
 
 
-def ntfy(topic: str, title: str, message: str, url: str):
-    payload = {"topic": topic, "title": title, "message": message, "priority": 5, "tags": ["rotating_light"]}
-    if url:
-        payload["click"] = url
+def ntfy(topic: str, title: str, message: str, links: list[tuple[str, str]], priority: int, tag: str):
+    payload = {"topic": topic, "title": title, "message": message, "priority": priority, "tags": [tag]}
+    if links:
+        payload["click"] = links[0][1]
+        payload["actions"] = [{"action": "view", "label": label, "url": u, "clear": True} for label, u in links[:3]]
     _post_json("https://ntfy.sh/", payload)
 
 
-def discord(webhook: str, title: str, message: str, url: str, role_id: str = ""):
+def discord(webhook: str, title: str, message: str, links: list[tuple[str, str]], role_id: str = ""):
     ping = f"<@&{role_id}> " if role_id else ""
+    link_line = " · ".join(f"[{label}](<{u}>)" for label, u in links)  # <> = no big link previews
     _post_json(webhook, {
-        "content": f"{ping}**{title}**\n{message}" + (f"\n{url}" if url else ""),
+        "content": f"{ping}**{title}**\n{message}" + (f"\n{link_line}" if link_line else ""),
         "allowed_mentions": {"parse": [], "roles": [role_id] if role_id else []},  # ping only this role
     })
 
 
-def send(cfg: dict, title: str, message: str, url: str = "") -> list[str]:
-    """Send to every configured channel. Returns the channels that succeeded."""
-    n = cfg.get("notify", {})
+def send(cfg: dict, title: str, message: str, links: list[tuple[str, str]] | None = None,
+         kind: str = "restock") -> list[str]:
+    """Send to every configured channel. links = [(label, url), ...]; the first is where a tap goes.
+    Returns the channels that succeeded."""
+    n, k, links = cfg.get("notify", {}), KINDS[kind], [(l, u) for l, u in (links or []) if u]
     channels = []
-    if n.get("windows", True):
-        channels.append(("windows", lambda: windows_toast(title, message, url)))
+    if n.get("windows", True) and k["windows"]:
+        channels.append(("windows", lambda: windows_toast(title, message, links, kind == "restock")))
     if n.get("ntfy_topic"):
-        channels.append(("ntfy", lambda: ntfy(n["ntfy_topic"], title, message, url)))
+        channels.append(("ntfy", lambda: ntfy(n["ntfy_topic"], title, message, links,
+                                              k["ntfy_priority"], k["tag"])))
     if n.get("discord_webhook"):
-        channels.append(("discord", lambda: discord(n["discord_webhook"], title, message, url,
-                                                         str(n.get("discord_ping_role", "")))))
+        role = str(n.get("discord_ping_role", "")) if k["ping"] else ""
+        channels.append(("discord", lambda: discord(n["discord_webhook"], title, message, links, role)))
 
     ok = []
     for name, fn in channels:
@@ -73,5 +93,6 @@ def send(cfg: dict, title: str, message: str, url: str = "") -> list[str]:
             ok.append(name)
         except Exception as e:
             log.warning("Alert via %s failed: %s", name, e)
-    log.info("ALERT sent (%s): %s — %s", ", ".join(ok) or "no channels", title, message)
+    log.info("%s sent (%s): %s — %s", kind.upper(), ", ".join(ok) or "no channels", title, message)
     return ok
+

@@ -48,7 +48,7 @@ def main():
 
     if args.test_notify:
         ok = notify.send(cfg, f"WebGodEye test: {cfg['target']['name']}",
-                         "If you can see this, alerts work.", url)
+                         "If you can see this, alerts work.", [("Open dashboard", url)])
         print("Delivered via:", ", ".join(ok) or "nothing")
         if cfg["notify"].get("ntfy_topic"):
             print(f"Phone: install the ntfy app and subscribe to topic  {cfg['notify']['ntfy_topic']}")

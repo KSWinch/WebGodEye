@@ -16,6 +16,17 @@ First-time setup (already done on this PC):
 python -m pip install -r requirements.txt
 ```
 
+## On your phone
+
+With `phone_access = true` in `[settings]`, the dashboard is also served on your home network. The address
+(e.g. `http://192.168.2.29:8765`) is shown at the bottom of the page when you open it on the PC. Open it on
+your phone while on the same Wi-Fi and add it to your home screen. The Running/Offline light tells you whether
+the watcher is still going; if the page won't load at all, the PC is off or asleep.
+
+Away from home: install Tailscale (free) on the PC and the phone, then use the PC's Tailscale address instead.
+Anyone on your Wi-Fi can view the page and press "Check now"; the ntfy topic is only shown on the PC itself.
+Set `phone_access = false` to keep it PC-only.
+
 ## Alerts
 - **Phone:** install the **ntfy** app and subscribe to the topic shown at the bottom of the dashboard
   (also in `watch.toml` → `ntfy_topic`). Anyone who knows the topic name can read it, so keep it to yourself.
@@ -24,6 +35,17 @@ python -m pip install -r requirements.txt
 - **Test all channels:** `python -m godeye --test-notify`
 
 You get one alert when something goes from sold out to in stock, not one every check.
+Restock alerts have a **Buy now** button that puts one of that size in the cart and goes straight to
+checkout (Shopify stores), plus a link to the product page. The dashboard shows the same Buy now button.
+
+Other messages (none of them ping the Discord role):
+- **Check failing**: one warning if a source has been failing for `alert_after_failing_hours` (default 3),
+  for example the store moved the product or is blocking checks. A quiet "Working again" follows when it recovers.
+- **Daily summary**: a quiet "Still watching" message at `daily_summary` (default 09:00) to the phone and
+  Discord, saying what is in stock, any restocks in the last day and any failing sources. Set it to `""` to turn it off.
+
+The dashboard's **Recently available** list logs every time a watched size came into stock, and when it
+sold out again, so short restocks you missed still show up. A card glows green while its item is in stock.
 
 ## Watching a different product
 Everything lives in **`watch.toml`**. Edit it, then double-click `run.bat` (it restarts the app).

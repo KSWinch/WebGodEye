@@ -9,12 +9,14 @@
     --bg: #f6f6f4; --card: #ffffff; --text: #1c1c1a; --muted: #6b6b66; --line: #e6e5e0;
     --green: #15803d; --green-bg: #dcfce7; --red: #9f1239; --red-bg: #ffe4e6;
     --amber: #92400e; --amber-bg: #fef3c7; --gray-bg: #efefec; --glow: rgba(0,0,0,.06);
+    --glow-green: #22c55e; --glow-bg: #f0fdf4; --glow-ring: rgba(34,197,94,.25); --glow-soft: rgba(34,197,94,.45);
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #141413; --card: #1d1d1b; --text: #ecebe6; --muted: #9a9993; --line: #2c2c29;
       --green: #4ade80; --green-bg: #12321f; --red: #fda4af; --red-bg: #3a1720;
       --amber: #fcd34d; --amber-bg: #3a2c0d; --gray-bg: #2a2a27; --glow: rgba(255,255,255,.09);
+      --glow-green: #4ade80; --glow-bg: #0f2a19; --glow-ring: rgba(74,222,128,.22); --glow-soft: rgba(74,222,128,.35);
     }
   }
   * { box-sizing: border-box; }
@@ -52,7 +54,32 @@
   .list { display: flex; flex-direction: column; gap: 10px; }
   .row { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px;
          display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: start; }
-  .row.hot { border-color: var(--green); box-shadow: 0 0 0 1px var(--green) inset; }
+  /* In stock: bright green glowing card */
+  .row.hot { border: 2px solid var(--glow-green); background: var(--glow-bg); padding: 15px 17px;
+             box-shadow: 0 0 0 4px var(--glow-ring), 0 0 28px 4px var(--glow-soft);
+             animation: glow 1.8s ease-in-out infinite; }
+  .row.hot .name { color: var(--green); }
+  @keyframes glow {
+    50% { box-shadow: 0 0 0 6px var(--glow-ring), 0 0 44px 10px var(--glow-soft); }
+  }
+  @media (prefers-reduced-motion: reduce) { .row.hot { animation: none; } }
+
+  /* Recently available */
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+       font-weight: 600; margin: 34px 0 10px; }
+  .history { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .hrow { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; padding: 12px 18px;
+          border-top: 1px solid var(--line); }
+  .hrow:first-child { border-top: 0; }
+  .hrow .what { font-weight: 600; font-size: 14px; }
+  .hrow .what a { color: inherit; text-decoration: none; }
+  .hrow .what a:hover { text-decoration: underline; }
+  .hrow .where { color: var(--muted); font-size: 13px; }
+  .hrow .when { grid-column: 2; grid-row: 1 / span 2; text-align: right; font-size: 13px; color: var(--muted);
+                white-space: nowrap; }
+  .hrow .dur { font-weight: 600; color: var(--text); }
+  .hrow.ongoing .dur { color: var(--green); }
+  .empty { padding: 16px 18px; color: var(--muted); font-size: 14px; }
   .name { font-weight: 600; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .summary { color: var(--muted); font-size: 14px; grid-column: 1; }
   .err { color: var(--amber); font-size: 13px; grid-column: 1; }
@@ -75,12 +102,25 @@
            border: 1px solid var(--line); background: var(--card); color: var(--text); text-decoration: none; }
   a.btn:hover, button.btn:hover { border-color: var(--muted); }
   button.btn[disabled] { opacity: .5; cursor: default; }
+  a.btn.buy { background: var(--glow-green); border-color: var(--glow-green); color: #052e16; font-weight: 600; }
   footer { margin-top: 28px; font-size: 12px; color: var(--muted); }
   code { background: var(--gray-bg); padding: 1px 6px; border-radius: 5px; }
 
+  /* Let long text wrap instead of pushing cards wider than the screen */
+  header > div, .row > *, .hrow > * { min-width: 0; }
+  .row, .hrow { grid-template-columns: minmax(0, 1fr) auto; }
+  .chip, h1, .summary, .hrow .what, .hrow .where { overflow-wrap: anywhere; }
+
   @media (max-width: 560px) {
-    .row { grid-template-columns: 1fr; }
+    main { padding: 22px 14px 40px; }
+    header { gap: 16px; margin-bottom: 20px; }
+    .hero, .hero img { width: 76px; height: 108px; }
+    h1 { font-size: 22px; margin-bottom: 10px; }
+    .row { grid-template-columns: minmax(0, 1fr); padding: 14px; }
+    .row.hot { padding: 13px; }
     .side { grid-column: 1; grid-row: auto; align-items: flex-start; text-align: left; }
+    .hrow { grid-template-columns: minmax(0, 1fr); padding: 12px 14px; }
+    .hrow .when { grid-column: 1; grid-row: auto; text-align: left; white-space: normal; }
   }
 </style>
 </head>
@@ -99,6 +139,8 @@
   <div class="offline-note">WebGodEye isn't running, so nothing is being checked. Double-click <b>run.bat</b> to
     start it. This page reconnects by itself. The results below are from before it stopped.</div>
   <div class="list" id="list"></div>
+  <h2>Recently available</h2>
+  <div class="history" id="history"></div>
   <footer id="footer"></footer>
 </main>
 
@@ -122,11 +164,37 @@ function until(ts, now) {
   return s < 3600 ? `next in ${Math.max(1, Math.round(s / 60))} min` : `next in ${Math.round(s / 3600)} h`;
 }
 
+function when(ts) {
+  const d = new Date(ts * 1000), today = new Date();
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (d.toDateString() === today.toDateString()) return `today ${time}`;
+  const y = new Date(today); y.setDate(today.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return `yesterday ${time}`;
+  return d.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + time;
+}
+function duration(sec) {
+  const m = Math.max(1, Math.round(sec / 60));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60), r = m % 60;
+  return h < 48 ? `${h} h${r ? ` ${r} min` : ""}` : `${Math.round(h / 24)} days`;
+}
+function historyRow(h, now) {
+  const live = h.end == null;
+  return `<div class="hrow ${live ? "ongoing" : ""}">
+    <div class="what"><a href="${esc(h.url)}" target="_blank" rel="noopener">${esc(h.item)}</a></div>
+    <div class="where">${esc(h.source)}</div>
+    <div class="when">${live
+      ? `<span class="dur">In stock now</span> · for ${duration(now - h.start)}<br>since ${when(h.start)}`
+      : `In stock for <span class="dur">${duration(h.end - h.start)}</span><br>${when(h.start)} → ${when(h.end)}`}</div>
+  </div>`;
+}
+
 function row(src, now) {
   const failing = src.error && src.consecutive_errors > 0;
   const status = src.checking ? "pending" : (failing && !src.last_ok ? "error" : src.status);
   const hot = ["in_stock", "match"].includes(src.status);
   const items = src.items.slice(0, 6);
+  const buy = src.items.find(i => i.hot && i.buy_url);
   const chips = items.map(i => `<a class="chip ${i.hot ? "hot" : ""}" href="${esc(i.url)}" target="_blank" rel="noopener"
       title="${esc(i.title)}">${esc(i.title.length > 60 ? i.title.slice(0, 60) + "…" : i.title)}${i.note ? " · " + esc(i.note) : ""}</a>`).join("");
   return `<div class="row ${hot ? "hot" : ""}">
@@ -137,6 +205,7 @@ function row(src, now) {
     <div class="side">
       <div class="times">${src.type === "link" ? "" : "checked " + ago(src.last_check, now)}<br>${src.type === "link" ? "" : until(src.next_check, now)}</div>
       <div class="actions">
+        ${buy ? `<a class="btn buy" href="${esc(buy.buy_url)}" target="_blank" rel="noopener">Buy now</a>` : ""}
         ${src.type === "link" ? "" : `<button class="btn" data-id="${esc(src.id)}" ${src.checking ? "disabled" : ""}>Check now</button>`}
         ${src.link ? `<a class="btn" href="${esc(src.link)}" target="_blank" rel="noopener">Open ↗</a>` : ""}
       </div>
@@ -197,8 +266,15 @@ async function refresh() {
   document.getElementById("meta").textContent =
     `${data.sources.length} sources · last activity ${ago(checked.length ? Math.max(...checked) : null, now)}`;
   document.getElementById("list").innerHTML = data.sources.map(s => row(s, now)).join("");
-  document.getElementById("footer").innerHTML = data.ntfy_topic
-    ? `Phone alerts: install the ntfy app and subscribe to <code>${esc(data.ntfy_topic)}</code>` : "";
+  document.getElementById("history").innerHTML = data.history.length
+    ? data.history.map(h => historyRow(h, now)).join("")
+    : `<div class="empty">Nothing you're watching has been in stock since WebGodEye started watching
+       (${esc(when(data.watching_since))}). Restocks, including ones that sell out again quickly, will be listed here.</div>`;
+  const onPC = /^(127\.|localhost$)/.test(location.hostname);
+  document.getElementById("footer").innerHTML = [
+    onPC && data.phone_url ? `On your phone (same Wi-Fi): <code>${esc(data.phone_url)}</code>` : "",
+    data.ntfy_topic ? `Phone alerts: install the ntfy app and subscribe to <code>${esc(data.ntfy_topic)}</code>` : "",
+  ].filter(Boolean).join("<br>");
 }
 
 document.getElementById("list").addEventListener("click", async e => {
